@@ -1,0 +1,82 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+func main() {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("⏱️  Таймер обратного отсчёта (CLI)")
+	fmt.Print("Введите время в формате ЧЧ:ММ:СС или ММ:СС или секунды: ")
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+
+	var totalSeconds int
+	parts := strings.Split(input, ":")
+	if len(parts) == 3 {
+		h, _ := strconv.Atoi(parts[0])
+		m, _ := strconv.Atoi(parts[1])
+		s, _ := strconv.Atoi(parts[2])
+		totalSeconds = h*3600 + m*60 + s
+	} else if len(parts) == 2 {
+		m, _ := strconv.Atoi(parts[0])
+		s, _ := strconv.Atoi(parts[1])
+		totalSeconds = m*60 + s
+	} else {
+		totalSeconds, _ = strconv.Atoi(input)
+	}
+
+	if totalSeconds <= 0 {
+		fmt.Println("Неверное время")
+		return
+	}
+
+	fmt.Printf("Таймер запущен на %s\n", formatDuration(totalSeconds))
+	fmt.Println("Нажмите Enter для паузы, Ctrl+C для выхода")
+	go func() {
+		bufio.NewReader(os.Stdin).ReadString('\n')
+		fmt.Println("\nПауза. Нажмите Enter для продолжения...")
+		bufio.NewReader(os.Stdin).ReadString('\n')
+	}() // упрощённо, для демонстрации
+
+	remaining := totalSeconds
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if remaining <= 0 {
+			break
+		}
+		remaining--
+		printProgress(totalSeconds-remaining, totalSeconds)
+		if remaining == 0 {
+			fmt.Println("\n✅ ВРЕМЯ ВЫШЛО!")
+			for i := 0; i < 3; i++ {
+				fmt.Print("\a")
+				time.Sleep(500 * time.Millisecond)
+			}
+			return
+		}
+	}
+}
+
+func formatDuration(sec int) string {
+	h := sec / 3600
+	m := (sec % 3600) / 60
+	s := sec % 60
+	return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+}
+
+func printProgress(elapsed, total int) {
+	percent := float64(elapsed) / float64(total) * 100
+	barLen := 50
+	filled := int(percent / 2)
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", barLen-filled)
+	remaining := total - elapsed
+	fmt.Printf("\r[%s] %3.0f%% | Осталось: %s", bar, percent, formatDuration(remaining))
+}
