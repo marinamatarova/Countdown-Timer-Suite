@@ -1,0 +1,164 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.Toolkit;
+
+public class TimerApp extends JFrame {
+    private JLabel timeLabel;
+    private JProgressBar progressBar;
+    private JTextField hourField, minField, secField;
+    private javax.swing.Timer timer;
+    private int remainingSeconds;
+    private int totalSeconds;
+    private boolean running;
+
+    public TimerApp() {
+        setTitle("Таймер обратного отсчёта");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(500, 400);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout(10, 10));
+        getContentPane().setBackground(new Color(44, 62, 80));
+
+        // Верхняя панель
+        JPanel topPanel = new JPanel(new FlowLayout());
+        topPanel.setOpaque(false);
+        topPanel.add(new JLabel("ЧЧ:"));
+        hourField = new JTextField("00", 3);
+        topPanel.add(hourField);
+        topPanel.add(new JLabel("ММ:"));
+        minField = new JTextField("01", 3);
+        topPanel.add(minField);
+        topPanel.add(new JLabel("СС"));
+        secField = new JTextField("00", 3);
+        topPanel.add(secField);
+        JButton setBtn = new JButton("Установить");
+        setBtn.addActionListener(e -> setTime());
+        topPanel.add(setBtn);
+        add(topPanel, BorderLayout.NORTH);
+
+        // Центр: время
+        timeLabel = new JLabel("00:00:00", SwingConstants.CENTER);
+        timeLabel.setFont(new Font("Courier New", Font.BOLD, 60));
+        timeLabel.setForeground(new Color(241, 196, 15));
+        timeLabel.setBackground(Color.BLACK);
+        timeLabel.setOpaque(true);
+        add(timeLabel, BorderLayout.CENTER);
+
+        // Прогресс
+        progressBar = new JProgressBar(0, 100);
+        progressBar.setStringPainted(true);
+        progressBar.setForeground(new Color(46, 204, 113));
+        add(progressBar, BorderLayout.SOUTH);
+
+        // Нижняя панель с кнопками
+        JPanel buttonPanel = new JPanel(new GridLayout(1, 3, 10, 10));
+        buttonPanel.setOpaque(false);
+        JButton startBtn = new JButton("▶ Старт");
+        JButton pauseBtn = new JButton("⏸ Пауза");
+        JButton resetBtn = new JButton("🔄 Сброс");
+        startBtn.addActionListener(e -> startTimer());
+        pauseBtn.addActionListener(e -> pauseTimer());
+        resetBtn.addActionListener(e -> resetTimer());
+        buttonPanel.add(startBtn);
+        buttonPanel.add(pauseBtn);
+        buttonPanel.add(resetBtn);
+        add(buttonPanel, BorderLayout.SOUTH);
+
+        // Пресеты
+        JPanel presets = new JPanel(new FlowLayout());
+        presets.setOpaque(false);
+        int[][] presetsData = {{1,0},{5,0},{10,0},{15,0}};
+        for (int[] p : presetsData) {
+            JButton btn = new JButton(p[0] + " мин");
+            btn.addActionListener(e -> setPreset(p[0]*60));
+            presets.add(btn);
+        }
+        add(presets, BorderLayout.NORTH);
+
+        setTime();
+        pack();
+    }
+
+    private void setTime() {
+        if (timer != null && timer.isRunning()) timer.stop();
+        int h = Integer.parseInt(hourField.getText().trim());
+        int m = Integer.parseInt(minField.getText().trim());
+        int s = Integer.parseInt(secField.getText().trim());
+        totalSeconds = h*3600 + m*60 + s;
+        if (totalSeconds <= 0) totalSeconds = 1;
+        remainingSeconds = totalSeconds;
+        updateDisplay();
+        progressBar.setValue(0);
+        running = false;
+    }
+
+    private void setPreset(int seconds) {
+        totalSeconds = seconds;
+        remainingSeconds = seconds;
+        hourField.setText(String.format("%02d", seconds/3600));
+        minField.setText(String.format("%02d", (seconds%3600)/60));
+        secField.setText(String.format("%02d", seconds%60));
+        updateDisplay();
+        progressBar.setValue(0);
+        if (timer != null && timer.isRunning()) timer.stop();
+        running = false;
+    }
+
+    private void updateDisplay() {
+        int h = remainingSeconds/3600;
+        int m = (remainingSeconds%3600)/60;
+        int s = remainingSeconds%60;
+        timeLabel.setText(String.format("%02d:%02d:%02d", h, m, s));
+        if (totalSeconds > 0) {
+            int percent = (totalSeconds - remainingSeconds) * 100 / totalSeconds;
+            progressBar.setValue(percent);
+        }
+    }
+
+    private void startTimer() {
+        if (remainingSeconds <= 0) {
+            JOptionPane.showMessageDialog(this, "Установите время > 0");
+            return;
+        }
+        if (running) return;
+        running = true;
+        timer = new javax.swing.Timer(1000, new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                if (remainingSeconds > 0) {
+                    remainingSeconds--;
+                    updateDisplay();
+                    if (remainingSeconds == 0) {
+                        timer.stop();
+                        running = false;
+                        Toolkit.getDefaultToolkit().beep();
+                        JOptionPane.showMessageDialog(TimerApp.this, "Время вышло!");
+                    }
+                } else {
+                    timer.stop();
+                    running = false;
+                }
+            }
+        });
+        timer.start();
+    }
+
+    private void pauseTimer() {
+        if (timer != null && timer.isRunning()) {
+            timer.stop();
+            running = false;
+        }
+    }
+
+    private void resetTimer() {
+        if (timer != null) timer.stop();
+        remainingSeconds = totalSeconds;
+        updateDisplay();
+        running = false;
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new TimerApp().setVisible(true));
+    }
+}
