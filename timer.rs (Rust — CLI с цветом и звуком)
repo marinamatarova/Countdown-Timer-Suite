@@ -1,0 +1,80 @@
+// Добавьте в Cargo.toml:
+// [dependencies]
+// crossterm = "0.27"
+// rodio = "0.17"
+
+use std::io::{self, Write};
+use std::thread;
+use std::time::Duration;
+use crossterm::{cursor, terminal, ExecutableCommand, QueueableCommand};
+use crossterm::style::{Color, SetForegroundColor, ResetColor};
+use std::process::Command;
+
+fn main() {
+    print!("Введите время (ЧЧ:ММ:СС или ММ:СС или секунды): ");
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    let input = input.trim();
+
+    let total_seconds = parse_time(input);
+    if total_seconds <= 0 {
+        println!("Неверный формат");
+        return;
+    }
+
+    let mut remaining = total_seconds;
+    let start = std::time::Instant::now();
+
+    // Очистка экрана и скрытие курсора
+    let mut stdout = io::stdout();
+    stdout.execute(terminal::Clear(terminal::ClearType::All)).unwrap();
+    stdout.execute(cursor::Hide).unwrap();
+
+    while remaining > 0 {
+        let elapsed = start.elapsed().as_secs();
+        remaining = total_seconds - elapsed;
+        if remaining < 0 { remaining = 0; }
+
+        print_progress(total_seconds - remaining, total_seconds, &mut stdout);
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    stdout.execute(cursor::Show).unwrap();
+    println!("\n✅ Время вышло!");
+    // Звук (системный beep)
+    for _ in 0..3 {
+        print!("\x07");
+        io::stdout().flush().unwrap();
+        thread::sleep(Duration::from_millis(500));
+    }
+}
+
+fn parse_time(s: &str) -> u64 {
+    let parts: Vec<&str> = s.split(':').collect();
+    if parts.len() == 3 {
+        let h = parts[0].parse::<u64>().unwrap_or(0);
+        let m = parts[1].parse::<u64>().unwrap_or(0);
+        let sec = parts[2].parse::<u64>().unwrap_or(0);
+        h*3600 + m*60 + sec
+    } else if parts.len() == 2 {
+        let m = parts[0].parse::<u64>().unwrap_or(0);
+        let sec = parts[1].parse::<u64>().unwrap_or(0);
+        m*60 + sec
+    } else {
+        s.parse::<u64>().unwrap_or(0)
+    }
+}
+
+fn print_progress(elapsed: u64, total: u64, stdout: &mut io::Stdout) {
+    let percent = (elapsed as f64 / total as f64) * 100.0;
+    let bar_len = 50;
+    let filled = (percent / 2.0) as usize;
+    let bar = "█".repeat(filled) + &"░".repeat(bar_len - filled);
+    let remaining = total - elapsed;
+    let time_str = format!("{:02}:{:02}:{:02}", remaining/3600, (remaining%3600)/60, remaining%60);
+    stdout.queue(SetForegroundColor(Color::Cyan)).unwrap();
+    print!("\r[{:<50}] {:3.0}% | Осталось: {}", bar, percent, time_str);
+    stdout.queue(ResetColor).unwrap();
+    io::stdout().flush().unwrap();
+}
